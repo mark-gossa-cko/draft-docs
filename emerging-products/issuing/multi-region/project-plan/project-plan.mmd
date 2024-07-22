@@ -1,0 +1,28 @@
+gantt
+    title Issuing Multi-Region - 2024/2025 plan
+    dateFormat YYYY-Q
+    axisFormat %Y-Q%q
+    tickInterval 3month
+    todayMarker off
+    section CMS
+        VCC - Remove HSM dependency (1FTE):2024-8, 7d
+        Generate/verify credentials - Remove HSM dependency (1FTE):2024-8, 14d
+        Finalize Product Discovery (1FTE): 2024-7, 7d
+        Review Technical Discovery (1FTE): cms1, after SeniorIc2, 2d
+        Build and test solution (1FTE): cms2, after cms1, 56d
+    section CMS SRE
+        Refactor IaC for CMS services (1FTE): CmsSre1, 2024-7, 14d
+        Create new AWS account (1FTE): CmsSre2, after CmsSre1, 7d
+        Build APAC CMS infrastructure (1FTE): after CmsSre2, 7d
+        Assist with CKO Multi-Region Pre-requisites (1FTE): 14d
+        Edge Gateway integration: after egw1, 14d
+        Client testing and migration to Multi-region: 28d
+    section Core Payments
+        Finalize Product Discovery (1FTE): 2024-7, 7d
+        Review Technical Discovery (1FTE): after SeniorIc2, 2d
+    section Senior IC
+        CKO Multi-Region Pre-requisites (1FTE): SeniorIc1, 2024-7, 42d
+        Create Technical Discovery (1FTE): SeniorIc2, after SeniorIc1, 7d
+        Assist building solution (1FTE): after cms1, 56d
+    section Edge Gateway
+        Multi-Region setup: egw1, 2025-1, 42d
