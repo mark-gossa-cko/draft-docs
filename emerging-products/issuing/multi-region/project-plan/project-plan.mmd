@@ -4,32 +4,28 @@ gantt
     axisFormat %Y-Q%q
     tickInterval 3month
     todayMarker off
+    section Global <br>Milestones
+        MILESTONE - PRODUCT AND TECHNICAL DISCOVERIES COMPLETE: crit, milestone, 2025-1, m1
+        MILESTONE - DEVELOPMENT AND TESTING COMPLETE (no EGW): crit, milestone, 2025-4, m2
+        MILESTONE - CLIENT GO-LIVE: crit, milestone, 2025-6, m3
     section CMS
-        VCC - Remove HSM dependency (1FTE):2024-8, 7d
-        Generate/verify credentials - Remove HSM dependency (1FTE):2024-8, 14d
-        Finalize Product Discovery (1FTE): 2024-7, 7d
-        Review Technical Discovery (1FTE): cms1, after SeniorIc2, 2d
-        Build and test solution (1FTE): cms2, after cms1, 56d
+        Remove HSM dependency for virtual card creation (1FTE):cmsd1, 2025-1, 14d
+        Remove HSM dependency for virtual card generate/verify credentials (1FTE):cmsd2, after cmsd1, 14d
+        Development and testing: after cmsd2, 60d
+        Product and technical discoveries: 2024-8, 140d
     section CMS SRE
-        Refactor IaC for CMS services (1FTE): CmsSre1, 2024-7, 14d
-        Create new AWS account (1FTE): CmsSre2, after CmsSre1, 7d
-        Build APAC CMS infrastructure (1FTE): after CmsSre2, 7d
-        Assist with CKO Multi-Region Pre-requisites (1FTE): 14d
-        Edge Gateway integration (1FTE): after egw1, 14d
-        MILESTONE - MVP COMPLETE: crit, milestone, m1
-        Client testing and migration to Multi-region (1 FTE): 28d
-        MILESTONE - CLIENT GO-LIVE: crit, milestone, m1
+        SRE Discoveries: 2024-07, 90d
+        SRE development: 2024-10, 90d
+        Assist with CKO Multi-Region Pre-requisites (1FTE): 2024-10, 180d
+        Edge Gateway integration (1FTE): after egw1, 30d
+        Client testing and migration to Multi-region (1 FTE): 30d
     section Core Payments
-        Finalize Product Discovery (1FTE): 2024-7, 7d
-        MILESTONE - PRODUCT DISCOVERY COMPLETE: crit, milestone, m1
-        Review Technical Discovery (1FTE): after SeniorIc2, 2d
-        MILESTONE - TECHNICAL DISCOVERY COMPLETE: crit, milestone, m1
+        Product and technical discoveries: 2024-8, 140d
+        Development and testing: after cmsd2, 2025-1, 90d
     section Senior IC
+        Product and technical discoveries: 2024-7, 180d
         Assist with Edge Gateway integration (0.5 FTE): after egw1, 14d
         Assist with client testing and migration to Multi-region (0.5 FTE): 28d
-        CKO Multi-Region Pre-requisites (0.5 FTE): SeniorIc1, 2024-7, 42d
-        Create Technical Discovery (0.5 FTE): SeniorIc2, after SeniorIc1, 7d
-        Assist building solution (0.5 FTE): after cms1, 56d
-        MILESTONE - PoC COMPLETE (QA, no EGW): crit, milestone, m1
+        Assist development/SRE work/CKO Multi-Region Pre-requisites (0.5 FTE): 2024-10, 180d
     section Edge Gateway
-        Multi-Region setup: egw1, 2025-1, 42d
+        Multi-Region setup: egw1, 2025-1, 90d
