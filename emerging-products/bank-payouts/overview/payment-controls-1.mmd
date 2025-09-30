@@ -1,0 +1,91 @@
+sequenceDiagram
+    participant SNS as SNS Topic
+    participant ProcessPayoutHandler
+    participant PayoutCreatedHandler
+    participant PayoutPersistedHandler
+    participant BalanceReservationCompletedHandler
+    participant MerchantApprovalAcceptedHandler
+    participant AMLScreeningSuccessfulHandler
+    participant PayToBankScreeningResponseHandler
+    participant LightningPayoutProcessedHandler
+    participant DynamoDB as fxp-paymentcontrols DynamoDB
+    participant PTBEventsDB as ptb-events DynamoDB
+    participant FIAPI
+    participant FinCrime as FinCrime SNS Topic
+    participant LightningSQS as lightning-nas-payout-approval-request SQS
+    participant CSSNS as CS SNS Topic
+
+    SNS->>ProcessPayoutHandler: ProcessPayout Event
+    ProcessPayoutHandler->>ProcessPayoutHandler: Get initial route (lowest order)
+    ProcessPayoutHandler->>PayoutCreatedHandler: PayoutCreated Event
+
+    PayoutCreatedHandler->>DynamoDB: Store payout in repository
+    DynamoDB-->>PayoutCreatedHandler: Payout stored
+    PayoutCreatedHandler->>PayoutPersistedHandler: PayoutPersisted Event
+
+    alt Not PTB
+        PayoutPersistedHandler->>BalanceReservationCompletedHandler: BalanceReservationCompleted Event
+    else PTB
+        PayoutPersistedHandler->>FIAPI: Reserve funds
+        alt Currency account not active
+            PayoutPersistedHandler->>SNS: PayoutRejectionReceived (balance_reservation_error)
+        else Insufficient funds
+            PayoutPersistedHandler->>SNS: PayoutRejectionReceived (insufficient_funds)
+        else Command in progress
+            Note over PayoutPersistedHandler: Retry after 30 seconds
+        else Other errors
+            Note over PayoutPersistedHandler: Move to dead letter queue
+        else Success
+            FIAPI-->>PayoutPersistedHandler: Funds reserved
+            PayoutPersistedHandler->>BalanceReservationCompletedHandler: BalanceReservationCompleted Event
+        end
+    end
+
+    BalanceReservationCompletedHandler->>BalanceReservationCompletedHandler: Auto-approve (TODO: implement merchant approval)
+    alt Test correlationId
+        BalanceReservationCompletedHandler->>MerchantApprovalAcceptedHandler: MerchantApprovalRejected Event
+    else Normal flow
+        BalanceReservationCompletedHandler->>MerchantApprovalAcceptedHandler: MerchantApprovalAccepted Event
+    end
+
+    alt Client Settlements
+        MerchantApprovalAcceptedHandler->>MerchantApprovalAcceptedHandler: Skip sanctions screening
+        MerchantApprovalAcceptedHandler->>AMLScreeningSuccessfulHandler: AMLScreeningSuccessful Event
+    else PayToBank
+        MerchantApprovalAcceptedHandler->>DynamoDB: Get PayoutCreated event
+        DynamoDB-->>MerchantApprovalAcceptedHandler: Payout data
+        MerchantApprovalAcceptedHandler->>FinCrime: PayToBankScreeningRequest
+        FinCrime->>PayToBankScreeningResponseHandler: PayToBankScreeningResponse Event
+    else Internal Transfers
+        MerchantApprovalAcceptedHandler->>AMLScreeningSuccessfulHandler: SanctionsScreeningAccepted Event
+    end
+
+    alt PayToBankScreeningResponse paths
+        alt AML Screening Successful
+            PayToBankScreeningResponseHandler->>AMLScreeningSuccessfulHandler: AMLScreeningSuccessful Event
+        else AML Screening Rejected
+            PayToBankScreeningResponseHandler->>SNS: AMLScreeningRejected Event
+        else Sanctions Screening Accepted
+            PayToBankScreeningResponseHandler->>AMLScreeningSuccessfulHandler: SanctionsScreeningAccepted Event
+        else Sanctions Screening Rejected
+            PayToBankScreeningResponseHandler->>SNS: SanctionsScreeningRejected Event
+        end
+    end
+
+    alt AMLScreeningSuccessful and LightningPayoutProcessed Events
+        alt PayoutSource is CS
+            AMLScreeningSuccessfulHandler->>LightningSQS: LightningPayoutApprovalRequest
+            AMLScreeningSuccessfulHandler->>CSSNS: LightningPayoutApprovalRequest
+            CSSNS->>LightningPayoutProcessedHandler: LightningPayoutProcessed Event
+
+        LightningPayoutProcessedHandler->>PTBEventsDB: Get payout from ptb-events table
+        PTBEventsDB-->>LightningPayoutProcessedHandler: Payout data
+        alt Action == Rejected
+            LightningPayoutProcessedHandler->>SNS: CheckoutApprovalRejected
+        else Action == Accepted
+            LightningPayoutProcessedHandler->>SNS: CheckoutApprovalAccepted
+        end
+        else PayoutSource is not CS
+            AMLScreeningSuccessfulHandler->>SNS: CheckoutApprovalAccepted
+        end
+    end

@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant SNS as SNS Topic
+    participant PayoutRejectionHandler
+    participant PayoutConfirmationHandler
+    participant DynamoDB as fxp-paymentcontrols DynamoDB
+    participant CurrencyAccountAPI
+    participant PayoutsPricingAPI
+    participant FIAPI
+
+    Note over SNS: Two separate input events
+
+    alt PayoutRejectionReceived Event
+        SNS->>PayoutRejectionHandler: PayoutRejectionReceived Event
+        PayoutRejectionHandler->>DynamoDB: Get payout
+        DynamoDB-->>PayoutRejectionHandler: Payout data
+
+        alt Fallback supported (Rail != thunes or rail not specified)
+            Note over PayoutRejectionHandler: Some Thunes specific logic exists here
+            PayoutRejectionHandler->>PayoutRejectionHandler: Get next route from PayoutCreated message
+            PayoutRejectionHandler->>SNS: CheckoutApprovalAccepted (with next route)
+        end
+
+        PayoutRejectionHandler->>FIAPI: Reverse balance
+        FIAPI-->>PayoutRejectionHandler: Balance reversed
+        PayoutRejectionHandler->>SNS: PayoutRejected Event
+
+    else PayoutConfirmationReceived Event
+        SNS->>PayoutConfirmationHandler: PayoutConfirmationReceived Event
+        PayoutConfirmationHandler->>DynamoDB: Get payout
+        DynamoDB-->>PayoutConfirmationHandler: Payout data
+
+        PayoutConfirmationHandler->>CurrencyAccountAPI: Get fees
+        CurrencyAccountAPI-->>PayoutConfirmationHandler: Currency account fees
+
+        PayoutConfirmationHandler->>PayoutsPricingAPI: Get fees
+        PayoutsPricingAPI-->>PayoutConfirmationHandler: Payouts pricing fees
+
+        PayoutConfirmationHandler->>FIAPI: Confirm funds (including fees)
+        FIAPI-->>PayoutConfirmationHandler: Funds confirmed
+        PayoutConfirmationHandler->>SNS: PayoutConfirmed Event
+    end

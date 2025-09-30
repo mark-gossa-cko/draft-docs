@@ -1,0 +1,57 @@
+sequenceDiagram
+    participant Client
+    participant Gatekeeper
+    participant PaymentTypeSelector
+    participant EntitiesAPI
+    participant CurrencyAccount
+    participant FXService
+    participant PayoutsEngine
+
+    Client->>Gatekeeper: POST /credit-transfer
+    Note over Client,Gatekeeper: Request contains dictionaries:<br/>- Sender<br/>- Recipient<br/>- Client<br/>- Sub Entity<br/>- etc.
+
+    Gatekeeper->>PaymentTypeSelector: Determine payment type
+    PaymentTypeSelector-->>Gatekeeper: PTB | PTC | Internal Transfer
+
+    alt Sub-entity payout
+        Gatekeeper->>EntitiesAPI: Get entity
+        EntitiesAPI-->>Gatekeeper: Entity details
+        
+        Gatekeeper->>CurrencyAccount: Get currency account
+        CurrencyAccount-->>Gatekeeper: Account information
+        
+        Gatekeeper->>FXService: Perform FX validation
+        FXService-->>Gatekeeper: Validation result
+        
+        Gatekeeper->>EntitiesAPI: Get sub-entity
+        EntitiesAPI-->>Gatekeeper: Sub-entity details
+        
+        Gatekeeper->>PayoutsEngine: API call
+        PayoutsEngine-->>Gatekeeper: Response
+        
+    else PayoutType is PTB
+        Gatekeeper->>EntitiesAPI: Get entity
+        EntitiesAPI-->>Gatekeeper: Entity details
+        
+        Gatekeeper->>CurrencyAccount: Get currency account information
+        CurrencyAccount-->>Gatekeeper: Account details
+        
+        Note over Gatekeeper: Check PayoutType.InternalTransfer<br/>(PTB or CS related?)
+        
+        alt PayoutContext.Category == "integrated_platform"
+            Note over Gatekeeper: Validate payout route exists<br/>What is this category?
+        end
+        
+        Gatekeeper->>FXService: Perform FX trade
+        Note over FXService: Validating trade capability<br/>or actually executing trade?
+        FXService-->>Gatekeeper: Trade result
+        
+        alt Client settlements
+            Note over Gatekeeper: Validate payment_instrument_id<br/>exists on recipient dictionary
+        end
+        
+        Gatekeeper->>PayoutsEngine: API call
+        PayoutsEngine-->>Gatekeeper: Response
+    end
+
+    Gatekeeper-->>Client: Response

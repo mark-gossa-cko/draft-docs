@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant PaymentControls
+    participant SNSTopic as SNS Topic
+    participant SNS
+    participant Rails as Rails  (e.g. LHV Rails)
+    participant Provider as Provider (e.g. LHV)
+    participant SNSPublisher as SNS Publisher
+
+    PaymentControls->>SNSTopic: CheckoutApprovalAccepted event
+    Note over SNSTopic: Event contains RoutingKey message attribute
+
+    SNSTopic->>SNS: Filter by RoutingKey prefix e.g. "Provider"
+    Note over SNS: SNS subscription filters for<br/>RoutingKey prefix of Provider
+
+    SNS->>Rails: CheckoutApprovalAccepted event
+    Note over Provider: Receives filtered event<br/>with Provider RoutingKey
+
+    Rails->>Provider: Process payout request
+    Note over Provider: External Provider processes<br/>the payout request
+
+    alt ProviderRails Scenarios
+        alt Payout Return
+            Provider->>Rails: Payout return response
+            Rails->>SNSTopic: PayoutReturnReceived event
+        else Payout Rejection
+            Provider->>Rails: Payout rejection response
+            Rails->>SNSTopic: PayoutRejectionReceived event
+        else Payout Dispatched
+            Provider->>Rails: Payout dispatched response
+            Rails->>SNSTopic: PayoutDispatchedReceived event
+        else Payout Confirmation
+            Provider->>Rails: Payout confirmation response
+            Rails->>SNSTopic: PayoutConfirmationReceived event
+        end
+    end

@@ -1,0 +1,67 @@
+sequenceDiagram
+    participant Client
+    participant PayoutsEngine
+    participant LaunchDarkly
+    participant ConfigProfilesDB as pe-configuration-profiles-dynamodb-prod (DynamoDB)
+    participant PayoutsDB as fxp-payouts-engine (DynamoDB)
+    participant ApplyFinancial
+    participant PayoutsPricingAPI
+    participant CalendarAPI
+    participant SNS
+    participant PaymentControls
+
+    Client->>PayoutsEngine: POST payoutsEngine/credit-transfer
+    Note over Client,PayoutsEngine: Request contains RecipientData<br/>with billing_descriptor
+
+    PayoutsEngine->>PayoutsEngine: Works out payment type
+    Note over PayoutsEngine: Determines PTB (Pay To Bank)
+
+    alt PTB Payment Type
+        PayoutsEngine->>LaunchDarkly: Check entity enabled for configuration profiles
+        LaunchDarkly-->>PayoutsEngine: Feature flag result
+
+        alt Configuration profiles enabled
+            PayoutsEngine->>ConfigProfilesDB: Get configuration profiles
+            Note over ConfigProfilesDB: Contains entity info:<br/>- IsPsp<br/>- IsHighRisk
+            ConfigProfilesDB-->>PayoutsEngine: Configuration profiles
+        else Configuration profiles not enabled
+            PayoutsEngine->>PayoutsDB: Get entity info
+            Note over PayoutsDB: fxp-payouts-engine table<br/>Contains IsPsp, IsHighRisk
+            PayoutsDB-->>PayoutsEngine: Entity information
+        end
+
+        alt Not Client Settlements
+            PayoutsEngine->>PayoutsEngine: Validate supported country currency
+            PayoutsEngine->>PayoutsDB: Lookup entity configuration
+            Note over PayoutsDB: PK: Configuration<br/>SK: entityId<br/>Contains AllowedCountryCurrencyPairs
+            PayoutsDB-->>PayoutsEngine: Entity configuration
+            PayoutsEngine-->>PayoutsEngine: Validation result
+
+            alt Not Israel bank
+                PayoutsEngine->>ApplyFinancial: Validate bank details
+                ApplyFinancial-->>PayoutsEngine: Validation result
+            end
+        end
+
+        PayoutsEngine->>PayoutsDB: Get all routes
+        Note over PayoutsDB: PK: RouteProfile#{ckoLegalEntityCode?.ToLower()}#{entityId}<br/>SK: {countryId}#{currencyId}#{routePaymentType}<br/>Can fall back to global route<br/>(PK: "global" from GlobalOptions.RoutingDynamicKey)
+        PayoutsDB-->>PayoutsEngine: Routes
+
+        PayoutsEngine->>PayoutsEngine: Validate routes
+        PayoutsEngine->>PayoutsEngine: Check routes intersect with configuration profile
+
+        alt Not Client Settlement
+            PayoutsEngine->>PayoutsPricingAPI: Validate fees profile exists
+            PayoutsPricingAPI-->>PayoutsEngine: Fees profile validation
+        end
+
+        PayoutsEngine->>CalendarAPI: Calculate Value Date
+        Note over CalendarAPI: Uses Route.Bank.Scheme.CalendarCodes
+        CalendarAPI-->>PayoutsEngine: Value Date
+
+        PayoutsEngine->>SNS: Publish ProcessPayout command
+        SNS->>PaymentControls: ProcessPayout event
+        Note over PaymentControls: Gets routing config data:<br/>- BankProfileDemo.RoutingName<br/>- PayoutType: automatic/manual/autosettle<br/>- Payout bank
+
+        PayoutsEngine-->>Client: 202 ACCEPTED
+    end
