@@ -1,12 +1,16 @@
 flowchart LR
-    Client["Client<br/>(Client settlements or PTB client)"]
+    Client["Client Settlements Scheduler"]
+    PTBClient["Pay To Bank Client"]
+    EdgeGateway["Edge Gateway"]
     Gateway["Gateway"]
     Gatekeeper["Gatekeeper"]
     PayoutsEngine["Payouts Engine"]
     PaymentControls["Payment Controls"]
     Rails["Rails"]
 
-    Client --> Gateway
+    Client --> Gatekeeper
+    PTBClient --> EdgeGateway
+    EdgeGateway --> Gateway
     Gateway --> Gatekeeper
     Gatekeeper --> PayoutsEngine
     PayoutsEngine --> PaymentControls
